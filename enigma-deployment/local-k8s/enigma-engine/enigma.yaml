@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enigma-engine-svc
+  labels:
+    app: enigma-engine
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 11443
+      targetPort: 11443
+      protocol: TCP
+      name: https
+  selector:
+    app: enigma-engine
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: enigma-config
+data:
+  application-k8s.yaml: |
+    enigma:
+      key-specification:
+        key: 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+        iv: 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+      encrypt-database: true
+
+    spring:
+      datasource:
+        username: postgres
+        password: postgres
+        url: jdbc:postgresql://enigma-postgresql-svc:5432/enigma
+      liquibase:
+        change-log: classpath:/db/changelog-local.xml
+
+    server:
+      ssl:
+        key-alias: enigmaserver
+        key-store-password: 2secure4u
+        key-store-type: pkcs12
+        key-store: classpath:enigmaserver.p12
+        trust-store-password: 2secure4u
+        trust-store-type: pkcs12
+        trust-store: classpath:enigmaserver.p12
+        client-auth: need
+
+    keycloak:
+      auth-server-url: https://enigma-keycloak-svc:12443/auth
+      realm: enigma
+      resource: enigma-engine
+      ssl-required: external
+      bearer-only: true
+      truststore: classpath:enigmaserver.p12
+      truststore-password: 2secure4u
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enigma-engine-deployment
+spec:
+  selector:
+    matchLabels:
+      app: enigma-engine
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: enigma-engine
+    spec:
+      containers:
+        - name: enigma-engine
+          image: enigma/engine:0.0.1-SNAPSHOT
+          ports:
+            - containerPort: 11443
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+          volumeMounts:
+            - mountPath: /config/
+              name: enigma-config-volume
+      volumes:
+        - name: enigma-config-volume
+          configMap:
+            name: enigma-config

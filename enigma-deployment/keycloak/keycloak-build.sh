@@ -1,0 +1,1 @@
+docker build -t enigma/keycloak:10.0.0 .

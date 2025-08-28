@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enigma-postgresql-svc
+  labels:
+    app: enigma-postgresql
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: http
+  selector:
+    app: enigma-postgresql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enigma-postgresql-deployment
+spec:
+  selector:
+    matchLabels:
+      app: enigma-postgresql
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: enigma-postgresql
+    spec:
+      containers:
+        - name: enigma-backoffice
+          image: postgres:12
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_DB
+              value: enigma
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata

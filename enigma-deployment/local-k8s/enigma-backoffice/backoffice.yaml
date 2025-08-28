@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enigma-backoffice-svc
+  labels:
+    app: enigma-backoffice
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 10443
+      targetPort: 10443
+      protocol: TCP
+      name: https
+  selector:
+    app: enigma-backoffice
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backoffice-config
+data:
+  application-k8s.yaml: |
+    enigma:
+      client:
+        two-way-enabled: true
+        enigma-base-url: "https://enigma-engine-svc:11443/enigma/"
+        # key store
+        key-store: classpath:enigmaclient.p12
+        key-store-password: 2secure4u
+        key-store-type: pkcs12
+        key-store-alias: enigmaclient
+        # trust store
+        trust-store: classpath:enigmaclient.p12
+        trust-store-password: 2secure4u
+        trust-store-type: pkcs12
+        oauth2:
+          client-id: enigma-admin
+          oauth2-token-uri: "https://enigma-keycloak-svc:12443/auth/realms/enigma/protocol/openid-connect/token"
+          client-secret: "2secure4u"
+          trust-store: classpath:enigmaclient.p12
+          trust-store-password: 2secure4u
+          trust-store-type: pkcs12
+
+    server:
+      ssl:
+        key-store-type: pkcs12
+        key-store-password: 2secure4u
+        key-alias: enigmabackoffice
+        key-store: classpath:enigmabackoffice.p12
+
+    keycloak:
+      auth-server-url: https://enigma-keycloak-svc:12443/auth
+      realm: enigma
+      resource: enigma-engine
+      ssl-required: all
+      bearer-only: true
+      truststore: classpath:enigmabackoffice.p12
+      truststore-password: 2secure4u
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enigma-backoffice-deployment
+spec:
+  selector:
+    matchLabels:
+      app: enigma-backoffice
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: enigma-backoffice
+    spec:
+      containers:
+        - name: enigma-backoffice
+          image: enigma/backoffice:0.0.1-SNAPSHOT
+          ports:
+            - containerPort: 10443
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+          volumeMounts:
+            - mountPath: /config/
+              name: backoffice-config-volume
+      volumes:
+        - name: backoffice-config-volume
+          configMap:
+            name: backoffice-config

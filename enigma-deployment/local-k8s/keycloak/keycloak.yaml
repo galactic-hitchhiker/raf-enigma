@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: enigma-keycloak-svc
+  labels:
+    app: enigma-keycloak
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 12443
+      targetPort: 8443
+      protocol: TCP
+      name: https
+  selector:
+    app: enigma-keycloak
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enigma-keycloak-deployment
+spec:
+  selector:
+    matchLabels:
+      app: enigma-keycloak
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: enigma-keycloak
+    spec:
+      containers:
+        - name: enigma-keycloak
+          image: enigma/keycloak:10.0.0
+          ports:
+            - containerPort: 8443
+          env:
+            - name: KEYCLOAK_FRONTEND_URL
+              value: "https://localhost:12443/auth"
+            - name: KEYCLOAK_IMPORT
+              value: "/enigma-realm.json"
+            - name: KEYCLOAK_USER
+              value: admin
+            - name: KEYCLOAK_PASSWORD
+              value: admin
+            - name: DB_VENDOR
+              value: postgres
+            - name: DB_ADDR
+              value: enigma-keycloak-postgresql-svc
+            - name: DB_PORT
+              value: "15432"
+            - name: DB_DATABASE
+              value: keycloak
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              value: postgres
+            - name: PROXY_ADDRESS_FORWARDING
+              value: "true"
